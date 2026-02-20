@@ -1,111 +1,142 @@
 import streamlit as st
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 from reportlab.platypus import ListFlowable, ListItem
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfbase import pdfmetrics
-from reportlab.lib.pagesizes import A4
-import io
+from reportlab.platypus import HRFlowable
+from reportlab.platypus import Frame
+from reportlab.platypus import KeepTogether
+from reportlab.lib.styles import getSampleStyleSheet
+from PIL import Image as PILImage
+import tempfile
 
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="AI Resume Builder PRO", page_icon="📄", layout="centered")
 
-st.title("📄 AI Resume Builder PRO (Free Version)")
-st.write("Create modern resume instantly 🚀")
+st.markdown("""
+<style>
+.main-title {
+    font-size:36px;
+    font-weight:700;
+    text-align:center;
+    color:#2563EB;
+}
+.section-box {
+    background:#0f172a;
+    padding:20px;
+    border-radius:15px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ---------------- TEMPLATE SWITCHER ----------------
-template = st.selectbox(
-    "Select Resume Template",
-    ["Modern Blue", "Minimal Black", "Professional Gray"]
-)
+st.markdown('<p class="main-title">📄 AI Resume Builder PRO (FREE)</p>', unsafe_allow_html=True)
+
+st.write("Create modern professional resume instantly 🚀")
 
 # ---------------- USER INPUT ----------------
+
 name = st.text_input("Full Name")
+role = st.text_input("Professional Title (Example: Python Developer)")
 email = st.text_input("Email")
 phone = st.text_input("Phone")
-summary = st.text_area("Career Summary")
+linkedin = st.text_input("LinkedIn URL")
+github = st.text_input("GitHub URL")
 
-skills = st.text_area("Skills (comma separated)")
-experience = st.text_area("Experience Description")
-education = st.text_area("Education Details")
+st.subheader("Professional Summary")
+summary = st.text_area("Write short professional summary")
+
+st.subheader("Skills (comma separated)")
+skills = st.text_input("Example: Python, SQL, React, Problem Solving")
+
+st.subheader("Experience")
+experience = st.text_area("Describe your experience")
+
+st.subheader("Education")
+education = st.text_area("Your education details")
+
+photo = st.file_uploader("Upload Profile Photo", type=["png", "jpg", "jpeg"])
 
 # ---------------- AUTO BULLET GENERATOR ----------------
-def generate_bullets(text):
-    lines = text.split("\n")
-    bullets = []
-    for line in lines:
-        if line.strip():
-            bullets.append("• " + line.strip().capitalize())
-    return bullets
+
+if st.button("✨ Generate Smart Bullet Points"):
+    bullets = [
+        "Developed scalable applications improving performance by 30%.",
+        "Collaborated with cross-functional teams to deliver high-quality software.",
+        "Optimized database queries reducing load time significantly.",
+        "Implemented secure authentication systems.",
+        "Built responsive UI improving user engagement."
+    ]
+    st.write("Suggested Points:")
+    for b in bullets:
+        st.write("•", b)
+
+# ---------------- LIVE PREVIEW ----------------
+
+st.subheader("👀 Resume Preview")
+
+st.markdown("---")
+st.markdown(f"## {name}")
+st.write(role)
+st.write(email, "|", phone)
+st.write(linkedin)
+st.write(github)
+
+if photo:
+    st.image(photo, width=120)
+
+st.markdown("### Summary")
+st.write(summary)
+
+st.markdown("### Skills")
+if skills:
+    for skill in skills.split(","):
+        st.write("•", skill.strip())
+
+st.markdown("### Experience")
+st.write(experience)
+
+st.markdown("### Education")
+st.write(education)
 
 # ---------------- PDF GENERATOR ----------------
-def create_pdf():
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    elements = []
 
+if st.button("📥 Download Resume as PDF"):
+
+    pdf_file = tempfile.NamedTemporaryFile(delete=False)
+    doc = SimpleDocTemplate(pdf_file.name, pagesize=A4)
+    elements = []
     styles = getSampleStyleSheet()
 
-    # TEMPLATE STYLING
-    if template == "Modern Blue":
-        heading_color = colors.HexColor("#1E3A8A")
-    elif template == "Minimal Black":
-        heading_color = colors.black
-    else:
-        heading_color = colors.grey
+    elements.append(Paragraph(f"<b>{name}</b>", styles['Title']))
+    elements.append(Paragraph(role, styles['Normal']))
+    elements.append(Spacer(1, 12))
 
-    heading_style = ParagraphStyle(
-        'HeadingStyle',
-        parent=styles['Heading1'],
-        textColor=heading_color,
-        fontSize=18,
-        spaceAfter=10
-    )
+    elements.append(Paragraph("<b>Contact</b>", styles['Heading2']))
+    elements.append(Paragraph(email, styles['Normal']))
+    elements.append(Paragraph(phone, styles['Normal']))
+    elements.append(Paragraph(linkedin, styles['Normal']))
+    elements.append(Paragraph(github, styles['Normal']))
+    elements.append(Spacer(1, 12))
 
-    normal_style = styles["Normal"]
+    elements.append(Paragraph("<b>Summary</b>", styles['Heading2']))
+    elements.append(Paragraph(summary, styles['Normal']))
+    elements.append(Spacer(1, 12))
 
-    # NAME
-    elements.append(Paragraph(name, heading_style))
-    elements.append(Paragraph(f"{email} | {phone}", normal_style))
-    elements.append(Spacer(1, 0.2 * inch))
+    elements.append(Paragraph("<b>Skills</b>", styles['Heading2']))
+    for skill in skills.split(","):
+        elements.append(Paragraph(f"• {skill.strip()}", styles['Normal']))
+    elements.append(Spacer(1, 12))
 
-    # SUMMARY
-    elements.append(Paragraph("<b>Summary</b>", styles["Heading2"]))
-    elements.append(Paragraph(summary, normal_style))
-    elements.append(Spacer(1, 0.2 * inch))
+    elements.append(Paragraph("<b>Experience</b>", styles['Heading2']))
+    elements.append(Paragraph(experience, styles['Normal']))
+    elements.append(Spacer(1, 12))
 
-    # SKILLS
-    elements.append(Paragraph("<b>Skills</b>", styles["Heading2"]))
-    skill_list = skills.split(",")
-    skill_bullets = [ListItem(Paragraph(skill.strip(), normal_style)) for skill in skill_list]
-    elements.append(ListFlowable(skill_bullets, bulletType='bullet'))
-    elements.append(Spacer(1, 0.2 * inch))
-
-    # EXPERIENCE
-    elements.append(Paragraph("<b>Experience</b>", styles["Heading2"]))
-    exp_bullets = generate_bullets(experience)
-    exp_list = [ListItem(Paragraph(item, normal_style)) for item in exp_bullets]
-    elements.append(ListFlowable(exp_list, bulletType='bullet'))
-    elements.append(Spacer(1, 0.2 * inch))
-
-    # EDUCATION
-    elements.append(Paragraph("<b>Education</b>", styles["Heading2"]))
-    elements.append(Paragraph(education, normal_style))
+    elements.append(Paragraph("<b>Education</b>", styles['Heading2']))
+    elements.append(Paragraph(education, styles['Normal']))
 
     doc.build(elements)
-    buffer.seek(0)
-    return buffer
 
-# ---------------- DOWNLOAD BUTTON ----------------
-if st.button("🚀 Generate Resume PDF"):
-    if name:
-        pdf = create_pdf()
-        st.download_button(
-            label="📥 Download Resume",
-            data=pdf,
-            file_name="resume.pdf",
-            mime="application/pdf"
-        )
-    else:
-        st.warning("Please enter your name.")
+    with open(pdf_file.name, "rb") as f:
+        st.download_button("Click to Download", f, file_name="resume.pdf")
